@@ -1,0 +1,1737 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Gestor de Prompts AI v3</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha512-xh6O/CkQoPOWDdYTDqeRdPCVd1SpvCA9XXcUnZS2FmJNp1coAFzvtCN9BmamE+4aHK8yyUHUSCcJHgXloTyT2A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        /* Estilos generales */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Ocultar secciones por defecto */
+        #promptLibrarySection, #createPromptSection, #manageTagsCategoriesSection {
+            display: none;
+        }
+        #promptLibrarySection.active, #createPromptSection.active, #manageTagsCategoriesSection.active {
+            display: block;
+        }
+        /* Estilo para el área de texto del prompt final */
+        #promptFinalDisplay {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            background-color: #f3f4f6;
+            border: 1px solid #d1d5db;
+            padding: 1rem;
+            border-radius: 0.375rem;
+            min-height: 150px;
+        }
+        /* Estilo para modales */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 50;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.6);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 25px;
+            border: 1px solid #888;
+            width: 90%; /* Más ancho para contenido complejo */
+            max-width: 800px; /* Ancho máximo aumentado */
+            border-radius: 0.5rem;
+            position: relative;
+        }
+        .close-button {
+            color: #aaa;
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+            text-decoration: none;
+        }
+        /* Estilo para botones */
+        .btn {
+            @apply inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+        }
+        .btn-primary { @apply bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500; }
+        .btn-secondary { @apply bg-gray-600 hover:bg-gray-700 focus:ring-gray-500; }
+        .btn-success { @apply bg-green-600 hover:bg-green-700 focus:ring-green-500; }
+        .btn-danger { @apply bg-red-600 hover:bg-red-700 focus:ring-red-500; }
+        .btn-warning { @apply bg-yellow-500 hover:bg-yellow-600 focus:ring-yellow-400 text-black; }
+        .btn-info { @apply bg-sky-600 hover:bg-sky-700 focus:ring-sky-500; }
+        .btn-icon { @apply p-2 rounded-full hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 text-sm disabled:opacity-50 disabled:cursor-not-allowed; }
+        .btn-tag { @apply inline-block bg-gray-200 text-gray-700 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full; }
+        .btn-tag-clickable { @apply cursor-pointer hover:bg-gray-300; }
+        /* Estilos para estrellas de calificación */
+        .rating-stars .fa-star { cursor: pointer; color: #d1d5db; /* Gris por defecto */ }
+        .rating-stars .fa-star.selected,
+        .rating-stars .fa-star:hover,
+        .rating-stars .fa-star:hover ~ .fa-star { color: #f59e0b; /* Amarillo/Naranja */ }
+        .rating-display .fa-star { color: #f59e0b; }
+        .rating-display .fa-star.empty { color: #d1d5db; }
+        /* Estilo para icono favorito */
+        .favorite-toggle { cursor: pointer; color: #d1d5db; }
+        .favorite-toggle.active { color: #ef4444; } /* Rojo */
+        /* Estilo para área de texto de exportación/importación */
+        #exportTextArea, #importTextArea {
+            width: 100%;
+            min-height: 250px;
+            font-family: monospace;
+            white-space: pre;
+            overflow-wrap: normal; /* Permitir scroll horizontal */
+            overflow-x: auto; /* Añadir scroll horizontal */
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            resize: vertical; /* Permitir redimensionar verticalmente */
+        }
+        /* Backup Reminder */
+        #backupReminder {
+            display: none; /* Oculto por defecto */
+            @apply bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4 rounded-md;
+        }
+        /* Variaciones */
+        .variation-item { @apply flex justify-between items-center p-2 border rounded-md mb-2 bg-gray-50; }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-100 p-4 md:p-8">
+
+    <div class="container mx-auto max-w-7xl bg-white p-6 rounded-lg shadow-lg">
+        <h1 class="text-3xl font-bold mb-2 text-center text-indigo-700">Mi Gestor de Prompts AI <span class="text-xl text-gray-500 align-middle">v3</span></h1>
+     
+
+        <div id="backupReminder">
+            <div class="flex justify-between items-center">
+                <div>
+                    <p class="font-bold">Recordatorio de Respaldo</p>
+                    <p>Parece que no has exportado tus prompts recientemente. ¡Considera hacer una copia de seguridad!</p>
+                </div>
+                <button onclick="dismissBackupReminder()" class="text-yellow-700 hover:text-yellow-900 text-2xl font-bold">&times;</button>
+            </div>
+        </div>
+
+        <div class="mb-6 border-b border-gray-200">
+            <nav class="-mb-px flex space-x-4 sm:space-x-8 overflow-x-auto pb-px" aria-label="Tabs">
+                <button id="tabLibrary" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-indigo-500 text-indigo-600" aria-current="page">
+                    <i class="fas fa-book mr-1"></i> Biblioteca
+                </button>
+                <button id="tabCreate" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                   <i class="fas fa-plus-circle mr-1"></i> Crear/Editar
+                </button>
+                 <button id="tabManage" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                   <i class="fas fa-tags mr-1"></i> Gestionar Etiquetas/Categorías
+                </button>
+            </nav>
+        </div>
+
+        <section id="promptLibrarySection" class="active">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+                 <h2 class="text-2xl font-semibold text-gray-800 flex-shrink-0">Biblioteca de Prompts</h2>
+                 <div class="flex flex-wrap gap-2 justify-start sm:justify-end flex-grow">
+                     <button id="importBtn" class="btn btn-info text-xs sm:text-sm">
+                         <i class="fas fa-file-import mr-1"></i> Importar JSON
+                     </button>
+                     <button id="exportSelectedBtn" class="btn btn-success text-xs sm:text-sm" disabled>
+                         <i class="fas fa-file-export mr-1"></i> Exportar Seleccionados JSON
+                     </button>
+                     <button id="exportAllBtn" class="btn btn-success text-xs sm:text-sm">
+                         <i class="fas fa-file-export mr-1"></i> Exportar Todo JSON
+                     </button>
+                 </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 p-4 bg-gray-50 rounded-lg border">
+                <input type="text" id="searchLibraryInput" placeholder="Buscar por nombre, categoría, etiqueta, contenido..." class="p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 md:col-span-2">
+                <div class="flex items-center space-x-2">
+                     <label for="filterFavorite" class="flex items-center text-sm font-medium text-gray-700">
+                        <input type="checkbox" id="filterFavorite" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 mr-2">
+                        Mostrar solo favoritos <i class="fas fa-star text-yellow-400 ml-1"></i>
+                    </label>
+                    <button id="clearFiltersBtn" class="btn btn-secondary btn-icon" title="Limpiar filtros">
+                        <i class="fas fa-filter-circle-xmark"></i>
+                    </button>
+                </div>
+                <div id="tagFilterContainer" class="md:col-span-3 flex flex-wrap gap-1 items-center">
+                    <span class="text-sm font-medium text-gray-700 mr-2">Filtrar por etiqueta:</span>
+                    <span class="text-xs text-gray-500">Ninguna etiqueta activa.</span>
+                 </div>
+            </div>
+
+            <div id="libraryList" class="space-y-4">
+                <p class="text-gray-500 p-4 text-center">Cargando prompts...</p>
+            </div>
+        </section>
+
+        <section id="createPromptSection">
+             <h2 class="text-2xl font-semibold mb-4 text-gray-800">Constructor/Editor de Prompts</h2>
+             <form id="promptBuilderForm" class="space-y-6">
+                 <input type="hidden" id="promptId">
+                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="promptName" class="block text-sm font-medium text-gray-700">Nombre/Propósito del Prompt:</label>
+                        <input type="text" id="promptName" name="promptName" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label for="promptCategory" class="block text-sm font-medium text-gray-700">Categoría:</label>
+                        <input type="text" id="promptCategory" name="promptCategory" list="categoryOptions" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                        <datalist id="categoryOptions"></datalist> </div>
+                    <div class="md:col-span-2">
+                        <label for="promptTags" class="block text-sm font-medium text-gray-700">Etiquetas (separadas por comas):</label>
+                        <input type="text" id="promptTags" name="promptTags" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                        <p class="mt-1 text-xs text-gray-500">Ej: email, marketing, urgente</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <label class="block text-sm font-medium text-gray-700">Calificación:</label>
+                        <div id="promptRating" class="rating-stars">
+                            <i class="fas fa-star" data-value="1"></i>
+                            <i class="fas fa-star" data-value="2"></i>
+                            <i class="fas fa-star" data-value="3"></i>
+                            <i class="fas fa-star" data-value="4"></i>
+                            <i class="fas fa-star" data-value="5"></i>
+                        </div>
+                        <input type="hidden" id="promptRatingValue" name="promptRatingValue" value="0">
+                    </div>
+                     <div class="flex items-center">
+                        <label for="promptFavorite" class="flex items-center text-sm font-medium text-gray-700 cursor-pointer">
+                            <input type="checkbox" id="promptFavorite" name="promptFavorite" class="hidden"> <i id="promptFavoriteIcon" class="favorite-toggle fas fa-star mr-2 text-2xl"></i>
+                            Marcar como Favorito
+                        </label>
+                    </div>
+                 </div>
+
+                <div class="space-y-4 border-t pt-6 mt-6">
+                    <div>
+                        <label for="promptRole" class="block text-sm font-medium text-gray-700">1. Rol/Persona de la IA:</label>
+                        <textarea id="promptRole" name="promptRole" rows="2" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                    </div>
+                    <div>
+                        <label for="promptContext" class="block text-sm font-medium text-gray-700">2. Contexto:</label>
+                        <textarea id="promptContext" name="promptContext" rows="3" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                    </div>
+                    <div>
+                        <label for="promptTask" class="block text-sm font-medium text-gray-700">3. Tarea Específica y Clara:</label>
+                        <textarea id="promptTask" name="promptTask" rows="3" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                    </div>
+                     <div>
+                        <label for="promptFormat" class="block text-sm font-medium text-gray-700">4. Formato de Salida Deseado:</label>
+                        <textarea id="promptFormat" name="promptFormat" rows="2" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                    </div>
+                     <div>
+                        <label for="promptTone" class="block text-sm font-medium text-gray-700">5. Tono y Audiencia:</label>
+                        <textarea id="promptTone" name="promptTone" rows="2" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                    </div>
+                     <div>
+                        <label for="promptConstraints" class="block text-sm font-medium text-gray-700">6. Restricciones y Guías Adicionales:</label>
+                        <textarea id="promptConstraints" name="promptConstraints" rows="2" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                    </div>
+                     <div>
+                        <label for="promptExample" class="block text-sm font-medium text-gray-700">7. Ejemplo:</label>
+                        <textarea id="promptExample" name="promptExample" rows="2" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                    </div>
+                </div>
+
+                <div class="border-t pt-6 mt-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-lg font-semibold text-gray-800">8. Prompt Final Generado:</h3>
+                        <div>
+                            <button type="button" id="generatePromptBtn" class="btn btn-secondary btn-sm mr-2">
+                                <i class="fas fa-cogs mr-1"></i> Generar/Actualizar
+                            </button>
+                            <button type="button" id="copyPromptBtn" class="btn btn-secondary btn-sm">
+                                <i class="fas fa-copy mr-1"></i> Copiar (Detecta Placeholders)
+                            </button>
+                        </div>
+                    </div>
+                    <div id="promptFinalDisplay" contenteditable="true" class="mt-1 block w-full p-3 border border-gray-300 rounded-md shadow-sm bg-gray-50 min-h-[150px] focus:ring-indigo-500 focus:border-indigo-500 whitespace-pre-wrap"></div>
+                    <p class="mt-1 text-xs text-gray-500">Puedes editar este texto directamente. Usa [placeholders] para variables.</p>
+                </div>
+
+                <div class="border-t pt-6 mt-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3">Variaciones de este Prompt</h3>
+                    <div id="variationsList" class="space-y-2 mb-3 max-h-48 overflow-y-auto">
+                        <p class="text-sm text-gray-500">No hay variaciones guardadas.</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="newVariationName" placeholder="Nombre de la nueva variación" class="flex-grow p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                        <button type="button" id="addVariationBtn" class="btn btn-info btn-sm">
+                            <i class="fas fa-plus mr-1"></i> Guardar Variación Actual
+                        </button>
+                    </div>
+                     <p class="mt-1 text-xs text-gray-500">Guarda el "Prompt Final Generado" actual como una variación con nombre.</p>
+                </div>
+
+                 <div>
+                    <label for="promptNotes" class="block text-sm font-medium text-gray-700">9. Notas/Comentarios:</label>
+                    <textarea id="promptNotes" name="promptNotes" rows="3" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                 </div>
+
+                 <div class="text-xs text-gray-500 border-t pt-3 mt-3">
+                     <p>ID: <span id="promptIdDisplay" class="font-mono">N/A</span></p>
+                     <p>Creado: <span id="promptCreatedDate">N/A</span></p>
+                     <p>Última Modificación: <span id="promptModifiedDate">N/A</span></p>
+                     <p>Veces Copiado: <span id="promptUsageCount">0</span></p>
+                 </div>
+
+                 <div class="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-4">
+                      <button type="button" id="clearFormBtn" class="btn btn-secondary w-full sm:w-auto">
+                         <i class="fas fa-eraser mr-1"></i> Limpiar Formulario
+                      </button>
+                      <button type="submit" id="savePromptBtn" class="btn btn-primary w-full sm:w-auto">
+                         <i class="fas fa-save mr-1"></i> Guardar en Biblioteca
+                      </button>
+                 </div>
+             </form>
+        </section>
+
+         <section id="manageTagsCategoriesSection">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800">Gestionar Etiquetas y Categorías</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="text-lg font-semibold mb-2">Etiquetas Existentes</h3>
+                    <div id="manageTagsList" class="space-y-2 max-h-60 overflow-y-auto border p-3 rounded-md">
+                        <p class="text-gray-500">No hay etiquetas definidas.</p>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold mb-2">Categorías Existentes</h3>
+                    <div id="manageCategoriesList" class="space-y-2 max-h-60 overflow-y-auto border p-3 rounded-md">
+                        <p class="text-gray-500">No hay categorías definidas.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div id="deleteConfirmModal" class="modal">
+            <div class="modal-content">
+                <span class="close-button" onclick="closeModal('deleteConfirmModal')">&times;</span>
+                <h3 class="text-lg font-semibold mb-4">Confirmar Eliminación</h3>
+                <p class="mb-6">¿Estás seguro de que quieres eliminar el prompt "<span id="deletePromptName" class="font-semibold"></span>"? Esta acción no se puede deshacer.</p>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('deleteConfirmModal')">Cancelar</button>
+                    <button type="button" id="confirmDeleteBtn" class="btn btn-danger">Eliminar</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="exportModal" class="modal">
+             <div class="modal-content">
+                 <span class="close-button" onclick="closeModal('exportModal')">&times;</span>
+                 <h3 class="text-lg font-semibold mb-4">Exportar Prompts a JSON</h3>
+                 <p class="mb-4 text-sm text-gray-600">Copia el siguiente texto JSON o descárgalo como archivo.</p>
+                 <textarea id="exportTextArea" readonly class="mb-4"></textarea>
+                 <div class="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
+                     <button type="button" id="downloadExportBtn" class="btn btn-success w-full sm:w-auto">
+                         <i class="fas fa-download mr-1"></i> Descargar Archivo (.json)
+                     </button>
+                     <button type="button" id="copyExportBtn" class="btn btn-primary w-full sm:w-auto">
+                         <i class="fas fa-copy mr-1"></i> Copiar al Portapapeles
+                     </button>
+                     <button type="button" class="btn btn-secondary w-full sm:w-auto" onclick="closeModal('exportModal')">Cerrar</button>
+                 </div>
+             </div>
+         </div>
+
+         <div id="importModal" class="modal">
+             <div class="modal-content">
+                 <span class="close-button" onclick="closeModal('importModal')">&times;</span>
+                 <h3 class="text-lg font-semibold mb-4">Importar Prompts desde JSON</h3>
+                 <p class="mb-2 text-sm text-gray-600">Pega el contenido JSON aquí o selecciona un archivo (.json).</p>
+                 <textarea id="importTextArea" class="mb-4"></textarea>
+                 <input type="file" id="importFile" accept=".json" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 mb-4"/>
+                 <div class="mb-4">
+                     <label class="flex items-center">
+                         <input type="checkbox" id="importMerge" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 mr-2" checked>
+                         <span class="text-sm text-gray-700">Combinar con prompts existentes (si no, reemplazará todo)</span>
+                     </label>
+                 </div>
+                 <div id="importError" class="text-red-600 text-sm mb-4 hidden"></div>
+                 <div class="flex justify-end space-x-3">
+                     <button type="button" class="btn btn-secondary" onclick="closeModal('importModal')">Cancelar</button>
+                     <button type="button" id="confirmImportBtn" class="btn btn-primary">
+                         <i class="fas fa-file-import mr-1"></i> Importar Ahora
+                     </button>
+                 </div>
+             </div>
+         </div>
+
+         <div id="placeholderModal" class="modal">
+            <div class="modal-content">
+                <span class="close-button" onclick="closeModal('placeholderModal')">&times;</span>
+                <h3 class="text-lg font-semibold mb-4">Rellenar Placeholders</h3>
+                <p class="mb-4 text-sm text-gray-600">Completa los valores para los placeholders detectados en el prompt:</p>
+                <form id="placeholderForm" class="space-y-3"></form>
+                <div id="finalPlaceholderTextPreview" class="mt-4 p-3 border rounded bg-gray-50 text-sm max-h-40 overflow-y-auto whitespace-pre-wrap">
+                    <span class="text-gray-500">Vista previa aparecerá aquí...</span>
+                </div>
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('placeholderModal')">Cancelar</button>
+                    <button type="button" id="copyPlaceholderResultBtn" class="btn btn-primary">
+                        <i class="fas fa-copy mr-1"></i> Copiar Prompt Rellenado
+                    </button>
+                </div>
+            </div>
+        </div>
+
+         <div id="editTagCatModal" class="modal">
+            <div class="modal-content">
+                <span class="close-button" onclick="closeModal('editTagCatModal')">&times;</span>
+                <h3 class="text-lg font-semibold mb-4">Editar <span id="editTagCatType"></span></h3>
+                <p class="mb-2 text-sm">Valor actual: "<strong id="editTagCatOldValue"></strong>"</p>
+                <input type="hidden" id="editTagCatIsCategory">
+                <div>
+                    <label for="editTagCatNewValue" class="block text-sm font-medium text-gray-700">Nuevo valor:</label>
+                    <input type="text" id="editTagCatNewValue" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('editTagCatModal')">Cancelar</button>
+                    <button type="button" id="confirmEditTagCatBtn" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- CONSTANTES Y VARIABLES GLOBALES ---
+        const LOCAL_STORAGE_KEY = 'aiPrompts_v3';
+        const BACKUP_REMINDER_DAYS = 14;
+        const LAST_EXPORT_KEY = 'aiPrompts_lastExport';
+
+        // Elementos de Navegación y Secciones
+        const tabLibrary = document.getElementById('tabLibrary');
+        const tabCreate = document.getElementById('tabCreate');
+        const tabManage = document.getElementById('tabManage');
+        const librarySection = document.getElementById('promptLibrarySection');
+        const createSection = document.getElementById('createPromptSection');
+        const manageTagsCategoriesSection = document.getElementById('manageTagsCategoriesSection');
+
+        // Elementos de la Biblioteca
+        const libraryList = document.getElementById('libraryList');
+        const searchLibraryInput = document.getElementById('searchLibraryInput');
+        const filterFavorite = document.getElementById('filterFavorite');
+        const tagFilterContainer = document.getElementById('tagFilterContainer');
+        const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+        const importBtn = document.getElementById('importBtn');
+        const exportSelectedBtn = document.getElementById('exportSelectedBtn');
+        const exportAllBtn = document.getElementById('exportAllBtn');
+
+        // Elementos del Formulario Crear/Editar
+        const promptBuilderForm = document.getElementById('promptBuilderForm');
+        const promptIdInput = document.getElementById('promptId');
+        const promptNameInput = document.getElementById('promptName');
+        const promptCategoryInput = document.getElementById('promptCategory');
+        const categoryOptionsDatalist = document.getElementById('categoryOptions');
+        const promptTagsInput = document.getElementById('promptTags');
+        const promptRatingContainer = document.getElementById('promptRating');
+        const promptRatingValueInput = document.getElementById('promptRatingValue');
+        const promptFavoriteCheckbox = document.getElementById('promptFavorite'); // Hidden checkbox
+        const promptFavoriteIcon = document.getElementById('promptFavoriteIcon'); // Visible icon
+        const promptRoleInput = document.getElementById('promptRole');
+        const promptContextInput = document.getElementById('promptContext');
+        const promptTaskInput = document.getElementById('promptTask');
+        const promptFormatInput = document.getElementById('promptFormat');
+        const promptToneInput = document.getElementById('promptTone');
+        const promptConstraintsInput = document.getElementById('promptConstraints');
+        const promptExampleInput = document.getElementById('promptExample');
+        const generatePromptBtn = document.getElementById('generatePromptBtn');
+        const copyPromptBtn = document.getElementById('copyPromptBtn');
+        const promptFinalDisplay = document.getElementById('promptFinalDisplay');
+        const variationsListContainer = document.getElementById('variationsList');
+        const newVariationNameInput = document.getElementById('newVariationName');
+        const addVariationBtn = document.getElementById('addVariationBtn');
+        const promptNotesInput = document.getElementById('promptNotes');
+        const promptIdDisplay = document.getElementById('promptIdDisplay');
+        const promptCreatedDate = document.getElementById('promptCreatedDate');
+        const promptModifiedDate = document.getElementById('promptModifiedDate');
+        const promptUsageCount = document.getElementById('promptUsageCount');
+        const clearFormBtn = document.getElementById('clearFormBtn');
+        const savePromptBtn = document.getElementById('savePromptBtn');
+
+        // Elementos de Gestión de Etiquetas/Categorías
+        const manageTagsList = document.getElementById('manageTagsList');
+        const manageCategoriesList = document.getElementById('manageCategoriesList');
+
+        // Modales y sus elementos
+        const deleteConfirmModal = document.getElementById('deleteConfirmModal');
+        const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+        const deletePromptNameSpan = document.getElementById('deletePromptName');
+        const exportModal = document.getElementById('exportModal');
+        const exportTextArea = document.getElementById('exportTextArea');
+        const copyExportBtn = document.getElementById('copyExportBtn');
+        const downloadExportBtn = document.getElementById('downloadExportBtn');
+        const importModal = document.getElementById('importModal');
+        const importTextArea = document.getElementById('importTextArea');
+        const importFile = document.getElementById('importFile');
+        const importMerge = document.getElementById('importMerge');
+        const importError = document.getElementById('importError');
+        const confirmImportBtn = document.getElementById('confirmImportBtn');
+        const placeholderModal = document.getElementById('placeholderModal');
+        const placeholderForm = document.getElementById('placeholderForm');
+        const copyPlaceholderResultBtn = document.getElementById('copyPlaceholderResultBtn');
+        const finalPlaceholderTextPreview = document.getElementById('finalPlaceholderTextPreview');
+        const editTagCatModal = document.getElementById('editTagCatModal');
+        const editTagCatTypeSpan = document.getElementById('editTagCatType');
+        const editTagCatOldValueSpan = document.getElementById('editTagCatOldValue');
+        const editTagCatNewValueInput = document.getElementById('editTagCatNewValue');
+        const editTagCatIsCategoryInput = document.getElementById('editTagCatIsCategory');
+        const confirmEditTagCatBtn = document.getElementById('confirmEditTagCatBtn');
+
+        // Backup Reminder
+        const backupReminder = document.getElementById('backupReminder');
+
+        // Estado Global
+        let prompts = []; // Array principal de prompts
+        let promptToDeleteId = null; // ID del prompt a eliminar
+        let currentPlaceholders = {}; // Placeholders detectados para el modal
+        let originalPlaceholderText = ""; // Texto original con placeholders
+        let activeTagFilters = new Set(); // Etiquetas seleccionadas para filtrar
+        let selectedPromptIds = new Set(); // IDs de prompts seleccionados en la biblioteca
+
+        // --- FUNCIONES ---
+
+        // Cargar prompts desde localStorage
+        function loadPrompts() {
+            const storedPrompts = localStorage.getItem(LOCAL_STORAGE_KEY);
+            try {
+                prompts = storedPrompts ? JSON.parse(storedPrompts) : [];
+                // Asegurar estructura mínima y valores por defecto
+                prompts = prompts.map(p => ({
+                    id: p.id || `prompt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    nombre: p.nombre || "Prompt sin nombre",
+                    categoria: p.categoria || "",
+                    tags: Array.isArray(p.tags) ? p.tags : [],
+                    rating: typeof p.rating === 'number' ? p.rating : 0,
+                    isFavorite: typeof p.isFavorite === 'boolean' ? p.isFavorite : false,
+                    usageCount: typeof p.usageCount === 'number' ? p.usageCount : 0,
+                    fechaCreacion: p.fechaCreacion || new Date().toISOString(),
+                    fechaModificacion: p.fechaModificacion || new Date().toISOString(),
+                    rol: p.rol || "",
+                    contexto: p.contexto || "",
+                    tarea: p.tarea || "",
+                    formato: p.formato || "",
+                    tono: p.tono || "",
+                    restricciones: p.restricciones || "",
+                    ejemplo: p.ejemplo || "",
+                    promptFinal: p.promptFinal || "",
+                    variations: Array.isArray(p.variations) ? p.variations : [],
+                    notas: p.notas || "",
+                    // history: p.history || [] // Podría añadirse si se decide guardar historial
+                }));
+            } catch (e) {
+                console.error("Error parsing prompts from localStorage:", e);
+                prompts = [];
+                alert("Error al cargar los prompts guardados. Se iniciará con una lista vacía.");
+                localStorage.removeItem(LOCAL_STORAGE_KEY); // Limpiar datos corruptos
+            }
+            renderLibrary();
+            updateTagAndCategoryLists(); // Actualizar listas de gestión y filtros
+            checkBackupReminder(); // Comprobar si mostrar recordatorio
+        }
+
+        // Guardar prompts en localStorage
+        function savePrompts() {
+            try {
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(prompts));
+            } catch (e) {
+                 console.error("Error saving prompts to localStorage:", e);
+                 alert("Error al guardar los prompts. Es posible que el almacenamiento esté lleno.");
+            }
+        }
+
+        // Mostrar/Ocultar secciones y actualizar pestañas
+        function showSection(sectionId) {
+            [librarySection, createSection, manageTagsCategoriesSection].forEach(section => {
+                section.classList.toggle('active', section.id === sectionId);
+            });
+            [tabLibrary, tabCreate, tabManage].forEach(tab => {
+                 const isActive = tab.id.toLowerCase().includes(sectionId.replace('Section', '').toLowerCase());
+                 tab.classList.toggle('border-indigo-500', isActive);
+                 tab.classList.toggle('text-indigo-600', isActive);
+                 tab.classList.toggle('border-transparent', !isActive);
+                 tab.classList.toggle('text-gray-500', !isActive);
+                 tab.classList.toggle('hover:text-gray-700', !isActive);
+                 tab.classList.toggle('hover:border-gray-300', !isActive);
+            });
+             // Limpiar formulario al ir a Crear si no se está editando
+             if (sectionId === 'createPromptSection' && !promptIdInput.value) {
+                 clearForm();
+             }
+              // Actualizar listas de gestión al ir a esa pestaña
+             if (sectionId === 'manageTagsCategoriesSection') {
+                 renderManageTagsCategories();
+             }
+        }
+
+        // --- Funciones de Renderizado ---
+
+        // Renderizar la lista de prompts en la biblioteca
+        function renderLibrary() {
+            libraryList.innerHTML = ''; // Limpiar lista actual
+            selectedPromptIds.clear(); // Limpiar selección
+            updateExportSelectedButton(); // Actualizar estado del botón
+
+            const filteredPrompts = getFilteredPrompts();
+
+            if (filteredPrompts.length === 0) {
+                const message = (searchLibraryInput.value || filterFavorite.checked || activeTagFilters.size > 0)
+                    ? 'No hay prompts que coincidan con los filtros aplicados.'
+                    : 'No has guardado ningún prompt todavía. ¡Crea uno nuevo!';
+                libraryList.innerHTML = `<p class="text-gray-500 p-4 text-center">${message}</p>`;
+                return;
+            }
+
+            // Ordenar (ej: por fecha de modificación descendente)
+            const sortedPrompts = [...filteredPrompts].sort((a, b) =>
+                new Date(b.fechaModificacion) - new Date(a.fechaModificacion)
+            );
+
+            sortedPrompts.forEach(prompt => {
+                const div = document.createElement('div');
+                div.className = 'p-4 border border-gray-200 rounded-md shadow-sm bg-white flex flex-col gap-3'; // Estructura vertical
+                div.dataset.promptId = prompt.id; // Añadir ID para selección
+
+                // Cabecera con Selección, Nombre, Favorito y Rating
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'flex items-center justify-between gap-2';
+                headerDiv.innerHTML = `
+                    <div class="flex items-center gap-2 flex-grow min-w-0">
+                         <input type="checkbox" class="prompt-select-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 flex-shrink-0" data-prompt-id="${prompt.id}" onchange="handlePromptSelection(this)">
+                         <h3 class="text-lg font-semibold text-indigo-700 truncate" title="${prompt.nombre}">${prompt.nombre || 'Prompt sin nombre'}</h3>
+                         <i class="favorite-toggle fas fa-star flex-shrink-0 ${prompt.isFavorite ? 'active' : ''}" title="${prompt.isFavorite ? 'Quitar de favoritos' : 'Marcar como favorito'}" onclick="toggleFavorite('${prompt.id}', event)"></i>
+                    </div>
+                    <div class="rating-display flex-shrink-0" title="Calificación: ${prompt.rating}/5">
+                        ${renderStars(prompt.rating, false)}
+                    </div>
+                `;
+                div.appendChild(headerDiv);
+
+                // Categoría y Etiquetas
+                const metaDiv = document.createElement('div');
+                metaDiv.className = 'flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600';
+                if (prompt.categoria) {
+                    metaDiv.innerHTML += `<span><i class="fas fa-folder-open mr-1 text-gray-400"></i> ${prompt.categoria}</span>`;
+                }
+                if (prompt.tags && prompt.tags.length > 0) {
+                    const tagsHtml = prompt.tags.map(tag => `<span class="btn-tag btn-tag-clickable" onclick="addTagFilter('${tag}', event)">${tag}</span>`).join('');
+                    metaDiv.innerHTML += `<div class="flex flex-wrap gap-1 items-center"><i class="fas fa-tags mr-1 text-gray-400"></i> ${tagsHtml}</div>`;
+                }
+                div.appendChild(metaDiv);
+
+                // Botones de Acción y Metadatos
+                const footerDiv = document.createElement('div');
+                footerDiv.className = 'flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-t pt-3 mt-3';
+
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'flex space-x-2 flex-wrap gap-1';
+                actionsDiv.innerHTML = `
+                    <button onclick="viewPrompt('${prompt.id}')" class="btn btn-secondary btn-sm" title="Ver/Editar"><i class="fas fa-edit mr-1"></i> Editar</button>
+                    <button onclick="copyFinalPromptWrapper('${prompt.id}')" class="btn btn-secondary btn-sm" title="Copiar Prompt Final"><i class="fas fa-copy mr-1"></i> Copiar</button>
+                    <button onclick="duplicatePrompt('${prompt.id}')" class="btn btn-secondary btn-sm" title="Duplicar Prompt"><i class="fas fa-clone mr-1"></i> Duplicar</button>
+                    <button onclick="openDeleteModal('${prompt.id}')" class="btn btn-danger btn-sm" title="Eliminar"><i class="fas fa-trash-alt mr-1"></i> Eliminar</button>
+                `;
+                footerDiv.appendChild(actionsDiv);
+
+                const metadataDiv = document.createElement('div');
+                metadataDiv.className = 'text-xs text-gray-400 text-left sm:text-right flex-shrink-0';
+                metadataDiv.innerHTML = `
+                    Modificado: ${formatDate(prompt.fechaModificacion)}<br>
+                    Copiado: ${prompt.usageCount || 0} veces
+                `;
+                footerDiv.appendChild(metadataDiv);
+
+                div.appendChild(footerDiv);
+                libraryList.appendChild(div);
+            });
+        }
+
+        // Renderizar estrellas de calificación
+        function renderStars(rating, isInput = true) {
+             let starsHtml = '';
+             for (let i = 1; i <= 5; i++) {
+                 const selectedClass = i <= rating ? (isInput ? 'selected' : '') : (isInput ? '' : 'empty');
+                 starsHtml += `<i class="fas fa-star ${selectedClass}" ${isInput ? `data-value="${i}"` : ''}></i>`;
+             }
+             return starsHtml;
+        }
+
+        // Formatear fecha
+        function formatDate(isoString) {
+            if (!isoString) return 'N/A';
+            try {
+                return new Date(isoString).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
+            } catch (e) {
+                return 'Fecha inválida';
+            }
+        }
+
+        // Renderizar la sección de gestión de etiquetas y categorías
+        function renderManageTagsCategories() {
+             const allTags = getAllUniqueTags();
+             const allCategories = getAllUniqueCategories();
+
+             manageTagsList.innerHTML = allTags.length === 0 ? '<p class="text-gray-500">No hay etiquetas definidas.</p>' : '';
+             allTags.sort().forEach(tag => {
+                 manageTagsList.innerHTML += `
+                     <div class="flex justify-between items-center p-2 border rounded-md">
+                         <span>${tag}</span>
+                         <div>
+                             <button onclick="openEditTagCatModal('${tag}', false)" class="btn-icon text-blue-600 hover:text-blue-800" title="Renombrar Etiqueta"><i class="fas fa-edit fa-fw"></i></button>
+                             <button onclick="deleteTagOrCategory('${tag}', false)" class="btn-icon text-red-600 hover:text-red-800" title="Eliminar Etiqueta (de todos los prompts)"><i class="fas fa-trash-alt fa-fw"></i></button>
+                         </div>
+                     </div>`;
+             });
+
+             manageCategoriesList.innerHTML = allCategories.length === 0 ? '<p class="text-gray-500">No hay categorías definidas.</p>' : '';
+             allCategories.sort().forEach(cat => {
+                 manageCategoriesList.innerHTML += `
+                     <div class="flex justify-between items-center p-2 border rounded-md">
+                         <span>${cat}</span>
+                         <div>
+                             <button onclick="openEditTagCatModal('${cat}', true)" class="btn-icon text-blue-600 hover:text-blue-800" title="Renombrar Categoría"><i class="fas fa-edit fa-fw"></i></button>
+                             <button onclick="deleteTagOrCategory('${cat}', true)" class="btn-icon text-red-600 hover:text-red-800" title="Eliminar Categoría (se quitará de los prompts)"><i class="fas fa-trash-alt fa-fw"></i></button>
+                         </div>
+                     </div>`;
+             });
+        }
+
+        // Actualizar listas de datalist y filtros de etiquetas
+        function updateTagAndCategoryLists() {
+            const allTags = getAllUniqueTags();
+            const allCategories = getAllUniqueCategories();
+
+            // Actualizar datalist de categorías
+            categoryOptionsDatalist.innerHTML = '';
+            allCategories.sort().forEach(cat => {
+                categoryOptionsDatalist.innerHTML += `<option value="${cat}">`;
+            });
+
+            // Actualizar filtros de etiquetas
+            tagFilterContainer.innerHTML = '<span class="text-sm font-medium text-gray-700 mr-2">Filtrar por etiqueta:</span>';
+            if (allTags.length === 0) {
+                 tagFilterContainer.innerHTML += '<span class="text-xs text-gray-500">No hay etiquetas disponibles.</span>';
+            } else {
+                allTags.sort().forEach(tag => {
+                    const isActive = activeTagFilters.has(tag);
+                    tagFilterContainer.innerHTML += `
+                        <button class="btn-tag ${isActive ? 'bg-indigo-200 text-indigo-800' : 'bg-gray-200 text-gray-700'} hover:bg-gray-300"
+                                onclick="toggleTagFilter('${tag}', event)">
+                            ${tag} ${isActive ? '<i class="fas fa-times ml-1"></i>' : ''}
+                        </button>`;
+                });
+            }
+        }
+
+        // --- Funciones de Filtrado y Búsqueda ---
+
+        // Obtener prompts filtrados según los controles UI
+        function getFilteredPrompts() {
+            const searchTerm = searchLibraryInput.value.toLowerCase().trim();
+            const showOnlyFavorites = filterFavorite.checked;
+
+            return prompts.filter(prompt => {
+                // Filtro de favoritos
+                if (showOnlyFavorites && !prompt.isFavorite) {
+                    return false;
+                }
+
+                // Filtro de etiquetas (debe tener TODAS las etiquetas activas)
+                if (activeTagFilters.size > 0) {
+                    const promptTagsLower = (prompt.tags || []).map(t => t.toLowerCase());
+                    let hasAllTags = true;
+                    for (const filterTag of activeTagFilters) {
+                        if (!promptTagsLower.includes(filterTag.toLowerCase())) {
+                            hasAllTags = false;
+                            break;
+                        }
+                    }
+                    if (!hasAllTags) return false;
+                }
+
+                // Filtro de búsqueda (si hay término de búsqueda)
+                if (searchTerm) {
+                    const nameMatch = (prompt.nombre || '').toLowerCase().includes(searchTerm);
+                    const categoryMatch = (prompt.categoria || '').toLowerCase().includes(searchTerm);
+                    const tagsMatch = (prompt.tags || []).some(tag => tag.toLowerCase().includes(searchTerm));
+                    const contentMatch = (
+                        (prompt.rol || '').toLowerCase().includes(searchTerm) ||
+                        (prompt.contexto || '').toLowerCase().includes(searchTerm) ||
+                        (prompt.tarea || '').toLowerCase().includes(searchTerm) ||
+                        (prompt.promptFinal || '').toLowerCase().includes(searchTerm) ||
+                        (prompt.notas || '').toLowerCase().includes(searchTerm)
+                    );
+                    if (!(nameMatch || categoryMatch || tagsMatch || contentMatch)) {
+                        return false;
+                    }
+                }
+
+                // Si pasa todos los filtros, incluir
+                return true;
+            });
+        }
+
+        // Aplicar filtros (llamado por eventos de input/change)
+        function applyFilters() {
+            renderLibrary();
+        }
+
+        // Limpiar todos los filtros
+        function clearFilters() {
+            searchLibraryInput.value = '';
+            filterFavorite.checked = false;
+            activeTagFilters.clear();
+            updateTagAndCategoryLists(); // Actualizar visualización de filtros de tag
+            applyFilters();
+        }
+
+         // Añadir/quitar filtro de etiqueta
+        function toggleTagFilter(tag, event) {
+             event.stopPropagation(); // Evitar que el clic se propague
+             if (activeTagFilters.has(tag)) {
+                 activeTagFilters.delete(tag);
+             } else {
+                 activeTagFilters.add(tag);
+             }
+             updateTagAndCategoryLists(); // Actualizar botones de filtro
+             applyFilters(); // Re-renderizar biblioteca
+        }
+
+        // Añadir un tag como filtro desde la tarjeta del prompt
+        function addTagFilter(tag, event) {
+             event.stopPropagation();
+             if (!activeTagFilters.has(tag)) {
+                 activeTagFilters.add(tag);
+                 updateTagAndCategoryLists();
+                 applyFilters();
+             }
+             // Opcional: scroll hacia arriba a los filtros
+             // searchLibraryInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        // --- Funciones del Formulario Crear/Editar ---
+
+        // Limpiar el formulario
+        function clearForm() {
+            promptBuilderForm.reset();
+            promptIdInput.value = '';
+            promptFinalDisplay.textContent = "Completa los campos y haz clic en 'Generar/Actualizar', o escribe directamente aquí.";
+            promptRatingValueInput.value = '0';
+            renderStarsInForm(0); // Resetear estrellas visualmente
+            promptFavoriteCheckbox.checked = false;
+            updateFavoriteIcon(false); // Resetear icono favorito
+            variationsListContainer.innerHTML = '<p class="text-sm text-gray-500">No hay variaciones guardadas.</p>'; // Limpiar variaciones
+            promptIdDisplay.textContent = 'N/A';
+            promptCreatedDate.textContent = 'N/A';
+            promptModifiedDate.textContent = 'N/A';
+            promptUsageCount.textContent = '0';
+            savePromptBtn.innerHTML = '<i class="fas fa-save mr-1"></i> Guardar en Biblioteca';
+            promptNameInput.focus();
+        }
+
+        // Generar el prompt final basado en los campos del formulario
+        function generateFinalPrompt() {
+            let finalPromptText = "";
+            const role = promptRoleInput.value.trim();
+            const context = promptContextInput.value.trim();
+            const task = promptTaskInput.value.trim(); // Tarea es clave
+            const format = promptFormatInput.value.trim();
+            const tone = promptToneInput.value.trim();
+            const constraints = promptConstraintsInput.value.trim();
+            const example = promptExampleInput.value.trim();
+
+            if (role) finalPromptText += `${role}\n\n`;
+            if (context) finalPromptText += `Contexto: ${context}\n\n`;
+            if (task) finalPromptText += `Tarea: ${task}\n\n`; // Asegurar que la tarea esté
+            if (format) finalPromptText += `Formato: ${format}\n`;
+            if (tone) finalPromptText += `Tono/Audiencia: ${tone}\n`;
+            if (constraints) finalPromptText += `Restricciones: ${constraints}\n`;
+            if (example) finalPromptText += `Ejemplo: ${example}\n`;
+
+            promptFinalDisplay.textContent = finalPromptText.trim() || "Completa los campos anteriores (especialmente la Tarea) y haz clic en 'Generar/Actualizar'.";
+        }
+
+        // Manejar envío del formulario (Guardar/Actualizar)
+        function handleFormSubmit(event) {
+            event.preventDefault();
+
+            const promptId = promptIdInput.value;
+            const now = new Date().toISOString();
+            const finalPromptText = promptFinalDisplay.textContent.trim();
+            const taskText = promptTaskInput.value.trim();
+
+            if (!taskText && !finalPromptText) {
+                 alert("Por favor, define al menos la 'Tarea Específica' o escribe un 'Prompt Final'.");
+                 promptTaskInput.focus();
+                 return;
+             }
+             // Generar prompt final si está vacío pero hay tarea
+             if (!finalPromptText && taskText) {
+                 generateFinalPrompt();
+                  // Re-leer por si se generó
+                 if (!promptFinalDisplay.textContent.trim()) {
+                     alert("No se pudo generar el prompt final automáticamente. Por favor, escríbelo manualmente.");
+                     promptFinalDisplay.focus();
+                     return;
+                 }
+             } else if (!finalPromptText) {
+                  alert("El prompt final no puede estar vacío. Genera uno o escríbelo manualmente.");
+                  promptFinalDisplay.focus();
+                  return;
+             }
+
+
+            const currentPromptData = promptId ? prompts.find(p => p.id === promptId) : {};
+
+            const promptData = {
+                id: promptId || `prompt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                nombre: promptNameInput.value.trim() || "Prompt sin nombre",
+                categoria: promptCategoryInput.value.trim(),
+                tags: promptTagsInput.value.split(',').map(tag => tag.trim()).filter(tag => tag), // Limpiar y filtrar vacíos
+                rating: parseInt(promptRatingValueInput.value) || 0,
+                isFavorite: promptFavoriteCheckbox.checked,
+                usageCount: currentPromptData?.usageCount || 0, // Mantener contador existente
+                fechaCreacion: currentPromptData?.fechaCreacion || now,
+                fechaModificacion: now,
+                rol: promptRoleInput.value.trim(),
+                contexto: promptContextInput.value.trim(),
+                tarea: taskText,
+                formato: promptFormatInput.value.trim(),
+                tono: promptToneInput.value.trim(),
+                restricciones: promptConstraintsInput.value.trim(),
+                ejemplo: promptExampleInput.value.trim(),
+                promptFinal: promptFinalDisplay.textContent.trim(), // Usar contenido editable
+                variations: currentPromptData?.variations || [], // Mantener variaciones existentes
+                notas: promptNotesInput.value.trim(),
+            };
+
+            if (promptId) {
+                // Actualizar prompt existente
+                const index = prompts.findIndex(p => p.id === promptId);
+                if (index > -1) {
+                    prompts[index] = promptData;
+                } else {
+                     prompts.push(promptData); // Si el ID no se encontró, añadir como nuevo
+                }
+            } else {
+                // Añadir nuevo prompt
+                prompts.push(promptData);
+            }
+
+            savePrompts();
+            loadPrompts(); // Recargar todo para reflejar cambios y actualizar filtros/listas
+            showSection('promptLibrarySection'); // Volver a la biblioteca
+            clearForm(); // Limpiar formulario
+
+            // Mensaje de éxito simple (opcional)
+            // alert(`Prompt "${promptData.nombre}" guardado.`);
+        }
+
+        // Cargar datos de un prompt en el formulario para editar/ver
+        function viewPrompt(id) {
+            const prompt = prompts.find(p => p.id === id);
+            if (!prompt) return;
+
+            clearForm(); // Limpiar antes de cargar
+
+            promptIdInput.value = prompt.id;
+            promptNameInput.value = prompt.nombre || '';
+            promptCategoryInput.value = prompt.categoria || '';
+            promptTagsInput.value = (prompt.tags || []).join(', ');
+            promptRatingValueInput.value = prompt.rating || 0;
+            renderStarsInForm(prompt.rating || 0);
+            promptFavoriteCheckbox.checked = prompt.isFavorite || false;
+            updateFavoriteIcon(prompt.isFavorite || false);
+            promptRoleInput.value = prompt.rol || '';
+            promptContextInput.value = prompt.contexto || '';
+            promptTaskInput.value = prompt.tarea || '';
+            promptFormatInput.value = prompt.formato || '';
+            promptToneInput.value = prompt.tono || '';
+            promptConstraintsInput.value = prompt.restricciones || '';
+            promptExampleInput.value = prompt.ejemplo || '';
+            promptFinalDisplay.textContent = prompt.promptFinal || '';
+            promptNotesInput.value = prompt.notas || '';
+
+            // Mostrar historial simple
+            promptIdDisplay.textContent = prompt.id;
+            promptCreatedDate.textContent = formatDate(prompt.fechaCreacion);
+            promptModifiedDate.textContent = formatDate(prompt.fechaModificacion);
+            promptUsageCount.textContent = prompt.usageCount || 0;
+
+            // Renderizar variaciones
+            renderVariations(prompt.variations || []);
+
+            savePromptBtn.innerHTML = '<i class="fas fa-sync-alt mr-1"></i> Actualizar Prompt';
+            showSection('createPromptSection');
+        }
+
+        // --- Funciones de Características Adicionales ---
+
+        // Calificación (Estrellas)
+        function setupRatingStars() {
+            promptRatingContainer.addEventListener('click', (e) => {
+                if (e.target.classList.contains('fa-star')) {
+                    const rating = parseInt(e.target.dataset.value);
+                    promptRatingValueInput.value = rating;
+                    renderStarsInForm(rating);
+                }
+            });
+             promptRatingContainer.addEventListener('mouseover', (e) => {
+                 if (e.target.classList.contains('fa-star')) {
+                     const rating = parseInt(e.target.dataset.value);
+                     highlightStars(rating);
+                 }
+             });
+             promptRatingContainer.addEventListener('mouseout', () => {
+                 // Volver a mostrar la calificación seleccionada
+                 renderStarsInForm(parseInt(promptRatingValueInput.value) || 0);
+             });
+        }
+        function renderStarsInForm(rating) {
+             const stars = promptRatingContainer.querySelectorAll('.fa-star');
+             stars.forEach(star => {
+                 star.classList.toggle('selected', parseInt(star.dataset.value) <= rating);
+             });
+        }
+         function highlightStars(rating) {
+             const stars = promptRatingContainer.querySelectorAll('.fa-star');
+             stars.forEach(star => {
+                 star.style.color = parseInt(star.dataset.value) <= rating ? '#f59e0b' : '#d1d5db';
+             });
+         }
+
+
+        // Favoritos
+        function setupFavoriteToggle() {
+            promptFavoriteIcon.addEventListener('click', () => {
+                const isFavorite = !promptFavoriteCheckbox.checked;
+                promptFavoriteCheckbox.checked = isFavorite;
+                updateFavoriteIcon(isFavorite);
+            });
+        }
+        function updateFavoriteIcon(isFavorite) {
+             promptFavoriteIcon.classList.toggle('active', isFavorite);
+             promptFavoriteIcon.classList.toggle('text-gray-300', !isFavorite); // Color gris si no es fav
+             promptFavoriteIcon.classList.toggle('text-red-500', isFavorite); // Color rojo si es fav
+             promptFavoriteIcon.title = isFavorite ? 'Quitar de favoritos' : 'Marcar como favorito';
+        }
+         // Toggle favorito desde la biblioteca
+        function toggleFavorite(id, event) {
+             event.stopPropagation(); // Evitar que se seleccione la tarjeta entera
+             const index = prompts.findIndex(p => p.id === id);
+             if (index > -1) {
+                 prompts[index].isFavorite = !prompts[index].isFavorite;
+                 prompts[index].fechaModificacion = new Date().toISOString(); // Actualizar fecha modif.
+                 savePrompts();
+                 // Actualizar icono visualmente en la biblioteca sin recargar todo
+                 const icon = event.target;
+                 icon.classList.toggle('active', prompts[index].isFavorite);
+                 icon.title = prompts[index].isFavorite ? 'Quitar de favoritos' : 'Marcar como favorito';
+                 // Si el filtro de favoritos está activo, re-renderizar
+                 if (filterFavorite.checked) {
+                     applyFilters();
+                 }
+             }
+        }
+
+        // Duplicar Prompt
+        function duplicatePrompt(id) {
+             const originalPrompt = prompts.find(p => p.id === id);
+             if (!originalPrompt) return;
+
+             if (!confirm(`¿Quieres duplicar el prompt "${originalPrompt.nombre || 'este prompt'}"?`)) return;
+
+
+             const newPrompt = JSON.parse(JSON.stringify(originalPrompt)); // Copia profunda
+             newPrompt.id = `prompt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`; // Nuevo ID
+             newPrompt.nombre = `${originalPrompt.nombre || 'Prompt'} (Copia)`; // Añadir "(Copia)"
+             const now = new Date().toISOString();
+             newPrompt.fechaCreacion = now;
+             newPrompt.fechaModificacion = now;
+             newPrompt.usageCount = 0; // Resetear contador
+             // Mantener favoritos, rating, tags, etc. de la copia
+
+             prompts.push(newPrompt);
+             savePrompts();
+             loadPrompts(); // Recargar para ver la copia
+             alert(`Prompt "${originalPrompt.nombre}" duplicado como "${newPrompt.nombre}".`);
+             // Opcional: ir directamente a editar la copia
+             // viewPrompt(newPrompt.id);
+        }
+
+        // Variaciones
+        function renderVariations(variations) {
+             variationsListContainer.innerHTML = '';
+             if (!variations || variations.length === 0) {
+                 variationsListContainer.innerHTML = '<p class="text-sm text-gray-500">No hay variaciones guardadas.</p>';
+                 return;
+             }
+             variations.forEach((variation, index) => {
+                 const variationDiv = document.createElement('div');
+                 variationDiv.className = 'variation-item';
+                 variationDiv.innerHTML = `
+                     <span class="font-medium truncate" title="${variation.name}">${variation.name}</span>
+                     <div class="flex space-x-1 flex-shrink-0">
+                         <button type="button" onclick="applyVariation(${index})" class="btn-icon text-green-600 hover:text-green-800" title="Aplicar esta variación al editor principal"><i class="fas fa-check"></i></button>
+                         <button type="button" onclick="copyVariationText(${index})" class="btn-icon text-blue-600 hover:text-blue-800" title="Copiar texto de esta variación"><i class="fas fa-copy"></i></button>
+                         <button type="button" onclick="deleteVariation(${index})" class="btn-icon text-red-600 hover:text-red-800" title="Eliminar esta variación"><i class="fas fa-trash-alt"></i></button>
+                     </div>
+                 `;
+                 variationsListContainer.appendChild(variationDiv);
+             });
+        }
+        function addVariation() {
+            const promptId = promptIdInput.value;
+            if (!promptId) {
+                alert("Guarda el prompt principal antes de añadir variaciones.");
+                return;
+            }
+            const variationName = newVariationNameInput.value.trim();
+            const variationText = promptFinalDisplay.textContent.trim();
+            if (!variationName) {
+                alert("Por favor, introduce un nombre para la variación.");
+                newVariationNameInput.focus();
+                return;
+            }
+             if (!variationText) {
+                alert("El 'Prompt Final Generado' está vacío. No se puede guardar como variación.");
+                return;
+            }
+
+            const index = prompts.findIndex(p => p.id === promptId);
+            if (index > -1) {
+                if (!prompts[index].variations) prompts[index].variations = [];
+                 // Verificar si ya existe una variación con ese nombre
+                 if (prompts[index].variations.some(v => v.name.toLowerCase() === variationName.toLowerCase())) {
+                     if (!confirm(`Ya existe una variación llamada "${variationName}". ¿Deseas sobrescribirla?`)) {
+                         return;
+                     }
+                      // Sobrescribir
+                     const varIndex = prompts[index].variations.findIndex(v => v.name.toLowerCase() === variationName.toLowerCase());
+                     prompts[index].variations[varIndex].promptFinal = variationText;
+                 } else {
+                     // Añadir nueva
+                     prompts[index].variations.push({ name: variationName, promptFinal: variationText });
+                 }
+
+                prompts[index].fechaModificacion = new Date().toISOString();
+                savePrompts();
+                renderVariations(prompts[index].variations); // Actualizar lista de variaciones en UI
+                newVariationNameInput.value = ''; // Limpiar input
+                alert(`Variación "${variationName}" guardada.`);
+            }
+        }
+        function applyVariation(index) {
+             const promptId = promptIdInput.value;
+             const promptIndex = prompts.findIndex(p => p.id === promptId);
+             if (promptIndex > -1 && prompts[promptIndex].variations && prompts[promptIndex].variations[index]) {
+                 promptFinalDisplay.textContent = prompts[promptIndex].variations[index].promptFinal;
+                 alert(`Variación "${prompts[promptIndex].variations[index].name}" aplicada al editor principal.`);
+             }
+        }
+        function copyVariationText(index) {
+             const promptId = promptIdInput.value;
+             const promptIndex = prompts.findIndex(p => p.id === promptId);
+             if (promptIndex > -1 && prompts[promptIndex].variations && prompts[promptIndex].variations[index]) {
+                 const textToCopy = prompts[promptIndex].variations[index].promptFinal;
+                 copyTextToClipboard(textToCopy, `Texto de la variación "${prompts[promptIndex].variations[index].name}" copiado!`);
+             }
+        }
+        function deleteVariation(indexToDelete) {
+             const promptId = promptIdInput.value;
+             const promptIndex = prompts.findIndex(p => p.id === promptId);
+             if (promptIndex > -1 && prompts[promptIndex].variations && prompts[promptIndex].variations[indexToDelete]) {
+                 const variationName = prompts[promptIndex].variations[indexToDelete].name;
+                 if (confirm(`¿Estás seguro de eliminar la variación "${variationName}"?`)) {
+                     prompts[promptIndex].variations.splice(indexToDelete, 1);
+                     prompts[promptIndex].fechaModificacion = new Date().toISOString();
+                     savePrompts();
+                     renderVariations(prompts[promptIndex].variations);
+                     alert(`Variación "${variationName}" eliminada.`);
+                 }
+             }
+        }
+
+
+        // Placeholders
+        function detectPlaceholders(text) {
+            // Regex para encontrar [placeholder], {placeholder}, |placeholder|
+            const regex = /\[([^\]]+)\]|\{([^}]+)\}|\<([^>]+)\>|\|([^|]+)\|/g;
+            let match;
+            const foundPlaceholders = new Set();
+            while ((match = regex.exec(text)) !== null) {
+                // Capturar el contenido del placeholder (el primer grupo que no sea null)
+                const placeholder = match[1] || match[2] || match[3] || match[4];
+                if (placeholder) {
+                    foundPlaceholders.add(placeholder.trim());
+                }
+            }
+            return Array.from(foundPlaceholders);
+        }
+
+        function openPlaceholderModal(text) {
+            originalPlaceholderText = text;
+            const placeholders = detectPlaceholders(text);
+            currentPlaceholders = {}; // Resetear
+            placeholderForm.innerHTML = ''; // Limpiar formulario anterior
+
+            if (placeholders.length === 0) {
+                // No hay placeholders, copiar directamente
+                copyTextToClipboard(text, "¡Prompt final copiado!");
+                incrementUsageCount(promptIdInput.value); // Incrementar contador si se copia desde el editor
+                return;
+            }
+
+            placeholders.forEach(ph => {
+                const phId = `ph-${ph.replace(/\s+/g, '-')}`; // Crear un ID seguro
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <label for="${phId}" class="block text-sm font-medium text-gray-700">${ph}:</label>
+                    <input type="text" id="${phId}" name="${ph}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 placeholder-input">
+                `;
+                placeholderForm.appendChild(div);
+                // Añadir listener para actualizar preview en tiempo real
+                div.querySelector('input').addEventListener('input', updatePlaceholderPreview);
+            });
+
+            updatePlaceholderPreview(); // Llamada inicial para mostrar preview
+            placeholderModal.style.display = 'block';
+            // Enfocar el primer input
+            const firstInput = placeholderForm.querySelector('input');
+            if (firstInput) firstInput.focus();
+        }
+
+        function updatePlaceholderPreview() {
+            let previewText = originalPlaceholderText;
+            const inputs = placeholderForm.querySelectorAll('.placeholder-input');
+            inputs.forEach(input => {
+                const phName = input.name;
+                const phValue = input.value.trim();
+                // Crear regex para reemplazar todas las ocurrencias del placeholder (con sus delimitadores)
+                 const regex = new RegExp(`\\[${escapeRegex(phName)}\\]|\\{${escapeRegex(phName)}\\}|\\<${escapeRegex(phName)}\\>|\\|${escapeRegex(phName)}\\|`, 'g');
+                 // Reemplazar con el valor (o dejar el placeholder si está vacío)
+                 previewText = previewText.replace(regex, phValue || `[${phName}]`); // Opcional: mantener placeholder si vacío
+            });
+            finalPlaceholderTextPreview.textContent = previewText;
+        }
+
+
+        function fillAndCopyPlaceholders() {
+            let filledText = originalPlaceholderText;
+            const inputs = placeholderForm.querySelectorAll('.placeholder-input');
+            inputs.forEach(input => {
+                const phName = input.name;
+                const phValue = input.value; // No trim() aquí para permitir espacios intencionales
+                 const regex = new RegExp(`\\[${escapeRegex(phName)}\\]|\\{${escapeRegex(phName)}\\}|\\<${escapeRegex(phName)}\\>|\\|${escapeRegex(phName)}\\|`, 'g');
+                filledText = filledText.replace(regex, phValue);
+                currentPlaceholders[phName] = phValue; // Guardar valores para posible reuso
+            });
+
+            copyTextToClipboard(filledText, "¡Prompt rellenado copiado!");
+            closeModal('placeholderModal');
+            incrementUsageCount(promptIdInput.value); // Incrementar contador si se copia desde el editor
+        }
+
+        // Función auxiliar para escapar caracteres especiales en regex
+        function escapeRegex(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& significa la cadena completa encontrada
+        }
+
+        // Wrapper para copiar prompt final (detecta placeholders)
+        function copyFinalPromptWrapper(promptId = null) {
+            let textToCopy = "";
+            let idToIncrement = null;
+
+            if (promptId) {
+                // Copiando desde la biblioteca
+                const prompt = prompts.find(p => p.id === promptId);
+                if (!prompt) {
+                     alert("Error: Prompt no encontrado.");
+                     return;
+                }
+                textToCopy = prompt.promptFinal || "";
+                idToIncrement = promptId;
+            } else {
+                // Copiando desde el editor
+                textToCopy = promptFinalDisplay.textContent.trim();
+                idToIncrement = promptIdInput.value; // Puede ser vacío si es nuevo prompt
+            }
+
+            if (!textToCopy || textToCopy === "Completa los campos y haz clic en 'Generar/Actualizar', o escribe directamente aquí.") {
+                alert("No hay prompt final para copiar.");
+                return;
+            }
+
+            // Detectar y abrir modal si hay placeholders
+            const placeholders = detectPlaceholders(textToCopy);
+            if (placeholders.length > 0) {
+                openPlaceholderModal(textToCopy);
+                 // El contador se incrementará después de rellenar y copiar desde el modal
+            } else {
+                // Copiar directamente si no hay placeholders
+                copyTextToClipboard(textToCopy, "¡Prompt final copiado!");
+                incrementUsageCount(idToIncrement); // Incrementar contador
+            }
+        }
+
+         // Incrementar contador de uso
+        function incrementUsageCount(promptId) {
+             if (!promptId) return; // No incrementar si es un prompt nuevo sin guardar
+             const index = prompts.findIndex(p => p.id === promptId);
+             if (index > -1) {
+                 prompts[index].usageCount = (prompts[index].usageCount || 0) + 1;
+                 prompts[index].fechaModificacion = new Date().toISOString(); // Actualizar fecha
+                 savePrompts();
+                 // Actualizar UI si estamos en el editor
+                 if (promptIdInput.value === promptId) {
+                     promptUsageCount.textContent = prompts[index].usageCount;
+                     promptModifiedDate.textContent = formatDate(prompts[index].fechaModificacion);
+                 }
+                 // Actualizar UI en la biblioteca (requiere re-render o actualización específica)
+                 // Para simplificar, la biblioteca se actualizará en la próxima carga/filtrado
+                 // O podemos forzar un re-renderizado parcial si es necesario.
+                 // Por ahora, solo actualiza el dato.
+             }
+        }
+
+        // Función genérica para copiar texto
+        function copyTextToClipboard(text, successMessage) {
+            navigator.clipboard.writeText(text)
+                .then(() => {
+                    alert(successMessage || "¡Texto copiado al portapapeles!");
+                })
+                .catch(err => {
+                    console.error('Error al copiar texto: ', err);
+                    alert("Error al copiar el texto. Revisa la consola.");
+                });
+        }
+
+        // --- Funciones de Importación/Exportación ---
+
+        function openExportModal(exportAll = true) {
+            let promptsToExport = [];
+            let filename = "";
+
+            if (exportAll) {
+                promptsToExport = prompts;
+                filename = `prompts_ai_export_all_${new Date().toISOString().split('T')[0]}.json`;
+            } else {
+                // Exportar seleccionados
+                if (selectedPromptIds.size === 0) {
+                    alert("Selecciona al menos un prompt para exportar.");
+                    return;
+                }
+                promptsToExport = prompts.filter(p => selectedPromptIds.has(p.id));
+                filename = `prompts_ai_export_selected_${new Date().toISOString().split('T')[0]}.json`;
+            }
+
+             if (promptsToExport.length === 0 && exportAll) {
+                 alert("No hay prompts guardados para exportar.");
+                 return;
+             }
+
+
+            try {
+                const jsonString = JSON.stringify(promptsToExport, null, 2); // Formateado con indentación
+                exportTextArea.value = jsonString;
+                downloadExportBtn.onclick = () => downloadJson(jsonString, filename); // Asignar función de descarga
+                exportModal.style.display = 'block';
+                // Marcar que se hizo una exportación (para el recordatorio)
+                localStorage.setItem(LAST_EXPORT_KEY, new Date().toISOString());
+                checkBackupReminder(); // Ocultar recordatorio si estaba visible
+            } catch (e) {
+                console.error("Error creating JSON for export:", e);
+                alert("Error al generar el archivo de exportación.");
+            }
+        }
+
+        function copyExportText() {
+             if (!exportTextArea.value) return;
+             copyTextToClipboard(exportTextArea.value, "¡Texto JSON de exportación copiado!");
+        }
+
+        function downloadJson(jsonString, filename) {
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function openImportModal() {
+            importTextArea.value = '';
+            importFile.value = ''; // Resetear input de archivo
+            importError.textContent = '';
+            importError.classList.add('hidden');
+            importModal.style.display = 'block';
+        }
+
+        function handleImport() {
+            const merge = importMerge.checked;
+            let jsonString = importTextArea.value.trim();
+            const file = importFile.files[0];
+            importError.textContent = '';
+            importError.classList.add('hidden');
+
+            if (!jsonString && !file) {
+                importError.textContent = "Por favor, pega el JSON o selecciona un archivo.";
+                importError.classList.remove('hidden');
+                return;
+            }
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    try {
+                        const fileContent = event.target.result;
+                        processImport(fileContent, merge);
+                    } catch (e) {
+                        console.error("Error reading file:", e);
+                        importError.textContent = `Error al leer el archivo: ${e.message}`;
+                        importError.classList.remove('hidden');
+                    }
+                };
+                reader.onerror = function(event) {
+                     console.error("File reading error:", event);
+                     importError.textContent = "Ocurrió un error al leer el archivo.";
+                     importError.classList.remove('hidden');
+                };
+                reader.readAsText(file);
+            } else {
+                processImport(jsonString, merge);
+            }
+        }
+
+        function processImport(jsonString, merge) {
+             try {
+                 const importedData = JSON.parse(jsonString);
+
+                 // Validación básica: ¿es un array?
+                 if (!Array.isArray(importedData)) {
+                     throw new Error("El archivo JSON no contiene un array de prompts válido.");
+                 }
+
+                 // Validación más detallada (opcional): verificar estructura de objetos
+                 const validPrompts = importedData.filter(p => p && typeof p === 'object' && (p.id || p.nombre || p.promptFinal)).map(p => ({
+                     // Mapear y asegurar campos mínimos/por defecto como en loadPrompts
+                     id: p.id || `prompt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                     nombre: p.nombre || "Prompt importado",
+                     categoria: p.categoria || "",
+                     tags: Array.isArray(p.tags) ? p.tags : [],
+                     rating: typeof p.rating === 'number' ? p.rating : 0,
+                     isFavorite: typeof p.isFavorite === 'boolean' ? p.isFavorite : false,
+                     usageCount: typeof p.usageCount === 'number' ? p.usageCount : 0,
+                     fechaCreacion: p.fechaCreacion || new Date().toISOString(),
+                     fechaModificacion: p.fechaModificacion || new Date().toISOString(),
+                     rol: p.rol || "",
+                     contexto: p.contexto || "",
+                     tarea: p.tarea || "",
+                     formato: p.formato || "",
+                     tono: p.tono || "",
+                     restricciones: p.restricciones || "",
+                     ejemplo: p.ejemplo || "",
+                     promptFinal: p.promptFinal || "",
+                     variations: Array.isArray(p.variations) ? p.variations : [],
+                     notas: p.notas || "",
+                 }));
+
+                 if (validPrompts.length !== importedData.length) {
+                      console.warn("Algunos prompts en el JSON importado tenían formato inválido y fueron omitidos.");
+                 }
+
+                 if (merge) {
+                     // Combinar: Añadir nuevos y actualizar existentes por ID
+                     const existingIds = new Set(prompts.map(p => p.id));
+                     validPrompts.forEach(importedPrompt => {
+                         const existingIndex = prompts.findIndex(p => p.id === importedPrompt.id);
+                         if (existingIndex > -1) {
+                             // Actualizar existente
+                             prompts[existingIndex] = importedPrompt;
+                         } else if (!existingIds.has(importedPrompt.id)) {
+                              // Añadir nuevo (si el ID no existía previamente en la carga inicial)
+                              prompts.push(importedPrompt);
+                         } else {
+                             // ID duplicado pero no encontrado (raro), generar nuevo ID y añadir
+                             console.warn(`ID duplicado detectado durante la fusión: ${importedPrompt.id}. Generando nuevo ID.`);
+                             importedPrompt.id = `prompt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                             prompts.push(importedPrompt);
+                         }
+                     });
+                 } else {
+                     // Reemplazar
+                     prompts = validPrompts;
+                 }
+
+                 savePrompts();
+                 loadPrompts(); // Recargar todo
+                 closeModal('importModal');
+                 alert(`Importación completada. ${validPrompts.length} prompts procesados.`);
+
+             } catch (e) {
+                 console.error("Error processing import:", e);
+                 importError.textContent = `Error al procesar el JSON: ${e.message}`;
+                 importError.classList.remove('hidden');
+             }
+        }
+
+        // Selección Múltiple en Biblioteca
+        function handlePromptSelection(checkbox) {
+            const promptId = checkbox.dataset.promptId;
+            if (checkbox.checked) {
+                selectedPromptIds.add(promptId);
+            } else {
+                selectedPromptIds.delete(promptId);
+            }
+            updateExportSelectedButton();
+        }
+
+        function updateExportSelectedButton() {
+            exportSelectedBtn.disabled = selectedPromptIds.size === 0;
+            exportSelectedBtn.title = selectedPromptIds.size === 0 ? "Selecciona prompts para exportar" : `Exportar ${selectedPromptIds.size} prompts seleccionados`;
+        }
+
+
+        // --- Funciones de Gestión de Etiquetas/Categorías ---
+
+        function getAllUniqueTags() {
+            const tags = new Set();
+            prompts.forEach(p => (p.tags || []).forEach(tag => tags.add(tag)));
+            return Array.from(tags);
+        }
+
+        function getAllUniqueCategories() {
+            const categories = new Set();
+            prompts.forEach(p => {
+                if (p.categoria) categories.add(p.categoria);
+            });
+            return Array.from(categories);
+        }
+
+        function openEditTagCatModal(oldValue, isCategory) {
+             editTagCatTypeSpan.textContent = isCategory ? 'Categoría' : 'Etiqueta';
+             editTagCatOldValueSpan.textContent = oldValue;
+             editTagCatNewValueInput.value = oldValue;
+             editTagCatIsCategoryInput.value = isCategory ? 'true' : 'false';
+             editTagCatModal.style.display = 'block';
+             editTagCatNewValueInput.focus();
+        }
+
+        function handleEditTagCat() {
+            const oldValue = editTagCatOldValueSpan.textContent;
+            const newValue = editTagCatNewValueInput.value.trim();
+            const isCategory = editTagCatIsCategoryInput.value === 'true';
+
+            if (!newValue) {
+                alert("El nuevo valor no puede estar vacío.");
+                return;
+            }
+             if (newValue === oldValue) {
+                 closeModal('editTagCatModal');
+                 return; // No changes
+             }
+
+             // Confirmación adicional si se renombra a algo que ya existe? (Opcional)
+
+            prompts.forEach(prompt => {
+                if (isCategory) {
+                    if (prompt.categoria === oldValue) {
+                        prompt.categoria = newValue;
+                        prompt.fechaModificacion = new Date().toISOString();
+                    }
+                } else {
+                    // Es etiqueta
+                    if (prompt.tags && prompt.tags.includes(oldValue)) {
+                         // Reemplazar la etiqueta vieja por la nueva, evitando duplicados
+                         const index = prompt.tags.indexOf(oldValue);
+                         if (index > -1) {
+                              // Solo añadir la nueva si no existe ya
+                              if (!prompt.tags.includes(newValue)) {
+                                   prompt.tags[index] = newValue; // Reemplazar en la posición
+                              } else {
+                                   prompt.tags.splice(index, 1); // Eliminar la vieja si la nueva ya existe
+                              }
+                              prompt.fechaModificacion = new Date().toISOString();
+                         }
+                    }
+                }
+            });
+
+            savePrompts();
+            loadPrompts(); // Recargar todo para actualizar UI
+            closeModal('editTagCatModal');
+            alert(`${isCategory ? 'Categoría' : 'Etiqueta'} renombrada de "${oldValue}" a "${newValue}".`);
+        }
+
+        function deleteTagOrCategory(value, isCategory) {
+             const typeText = isCategory ? 'categoría' : 'etiqueta';
+             if (!confirm(`¿Estás seguro de eliminar la ${typeText} "${value}"? Se eliminará de todos los prompts donde se use.`)) {
+                 return;
+             }
+
+             prompts.forEach(prompt => {
+                 let changed = false;
+                 if (isCategory) {
+                     if (prompt.categoria === value) {
+                         prompt.categoria = ""; // O null, o eliminar la propiedad
+                         changed = true;
+                     }
+                 } else {
+                     // Es etiqueta
+                     if (prompt.tags && prompt.tags.includes(value)) {
+                         prompt.tags = prompt.tags.filter(tag => tag !== value);
+                         changed = true;
+                     }
+                 }
+                 if (changed) {
+                      prompt.fechaModificacion = new Date().toISOString();
+                 }
+             });
+
+             savePrompts();
+             loadPrompts(); // Recargar todo
+             alert(`${isCategory ? 'Categoría' : 'Etiqueta'} "${value}" eliminada.`);
+        }
+
+
+        // --- Funciones de Modales y UI Auxiliar ---
+
+        // Abrir modal de confirmación de eliminación
+        function openDeleteModal(id) {
+            promptToDeleteId = id;
+            const prompt = prompts.find(p => p.id === id);
+            deletePromptNameSpan.textContent = prompt ? prompt.nombre : 'este prompt';
+            deleteConfirmModal.style.display = 'block';
+        }
+
+        // Eliminar prompt
+        function deletePrompt() {
+            if (!promptToDeleteId) return;
+
+            prompts = prompts.filter(p => p.id !== promptToDeleteId);
+            savePrompts();
+            applyFilters(); // Re-renderizar la biblioteca con filtros actuales
+            if (promptIdInput.value === promptToDeleteId) { // Si se borra el que se está editando
+                clearForm();
+            }
+            closeModal('deleteConfirmModal');
+            promptToDeleteId = null;
+        }
+
+        // Cerrar cualquier modal
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.style.display = 'none';
+            }
+             // Limpiar estados específicos al cerrar ciertos modales
+             if (modalId === 'placeholderModal') {
+                 originalPlaceholderText = "";
+                 currentPlaceholders = {};
+             }
+             if (modalId === 'importModal') {
+                 importError.classList.add('hidden');
+                 importError.textContent = '';
+             }
+        }
+
+        // Recordatorio de Backup
+        function checkBackupReminder() {
+            const lastExportTimestamp = localStorage.getItem(LAST_EXPORT_KEY);
+            if (!lastExportTimestamp) {
+                // Nunca se ha exportado, mostrar si hay prompts
+                if (prompts.length > 0) backupReminder.style.display = 'block';
+            } else {
+                const lastExportDate = new Date(lastExportTimestamp);
+                const daysSinceLastExport = (new Date() - lastExportDate) / (1000 * 60 * 60 * 24);
+                if (daysSinceLastExport > BACKUP_REMINDER_DAYS) {
+                    backupReminder.style.display = 'block';
+                } else {
+                    backupReminder.style.display = 'none';
+                }
+            }
+        }
+        function dismissBackupReminder() {
+             backupReminder.style.display = 'none';
+             // Opcional: guardar timestamp de dismiss para no mostrarlo por X días más
+        }
+
+        // --- EVENT LISTENERS ---
+        // Navegación
+        tabLibrary.addEventListener('click', () => showSection('promptLibrarySection'));
+        tabCreate.addEventListener('click', () => showSection('createPromptSection'));
+        tabManage.addEventListener('click', () => showSection('manageTagsCategoriesSection'));
+
+        // Biblioteca
+        searchLibraryInput.addEventListener('input', applyFilters);
+        filterFavorite.addEventListener('change', applyFilters);
+        clearFiltersBtn.addEventListener('click', clearFilters);
+        importBtn.addEventListener('click', openImportModal);
+        exportAllBtn.addEventListener('click', () => openExportModal(true));
+        exportSelectedBtn.addEventListener('click', () => openExportModal(false));
+
+        // Formulario Crear/Editar
+        promptBuilderForm.addEventListener('submit', handleFormSubmit);
+        generatePromptBtn.addEventListener('click', generateFinalPrompt);
+        copyPromptBtn.addEventListener('click', () => copyFinalPromptWrapper(null)); // Copiar desde builder
+        clearFormBtn.addEventListener('click', clearForm);
+        addVariationBtn.addEventListener('click', addVariation);
+
+        // Modales
+        confirmDeleteBtn.addEventListener('click', deletePrompt);
+        copyExportBtn.addEventListener('click', copyExportText);
+        confirmImportBtn.addEventListener('click', handleImport);
+        importFile.addEventListener('change', () => { importTextArea.value = ''; }); // Limpiar textarea si se selecciona archivo
+        copyPlaceholderResultBtn.addEventListener('click', fillAndCopyPlaceholders);
+        confirmEditTagCatBtn.addEventListener('click', handleEditTagCat);
+
+         // Cerrar modales si se hace clic fuera del contenido
+         window.onclick = function(event) {
+             if (event.target.classList.contains('modal')) {
+                 closeModal(event.target.id);
+             }
+         }
+         // Cerrar modales con tecla Escape
+         window.addEventListener('keydown', function (event) {
+             if (event.key === 'Escape') {
+                 document.querySelectorAll('.modal').forEach(modal => {
+                     if (modal.style.display === 'block') {
+                         closeModal(modal.id);
+                     }
+                 });
+             }
+         });
+
+        // --- INICIALIZACIÓN ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPrompts(); // Cargar prompts al iniciar
+            setupRatingStars(); // Configurar estrellas interactivas
+            setupFavoriteToggle(); // Configurar toggle de favorito en form
+            showSection('promptLibrarySection'); // Mostrar la biblioteca por defecto
+        });
+
+    </script>
+
+</body>
+</html>
