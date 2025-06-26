@@ -1005,12 +1005,13 @@
                  renderStarsInForm(parseInt(promptRatingValueInput.value) || 0);
              });
         }
-        function renderStarsInForm(rating) {
-             const stars = promptRatingContainer.querySelectorAll('.fa-star');
-             stars.forEach(star => {
-                 star.classList.toggle('selected', parseInt(star.dataset.value) <= rating);
-             });
-        }
+       function renderStarsInForm(rating) {
+            const stars = promptRatingContainer.querySelectorAll('.fa-star');
+            stars.forEach(star => {
+                star.classList.toggle('selected', parseInt(star.dataset.value) <= rating);
+                star.style.color = ''; // Resetear color para que la clase defina el estilo
+            });
+       }
          function highlightStars(rating) {
              const stars = promptRatingContainer.querySelectorAll('.fa-star');
              stars.forEach(star => {
